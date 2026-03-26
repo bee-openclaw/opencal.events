@@ -2,12 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Calendar, Menu, X } from "lucide-react";
+import { Calendar, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { data: session, status } = useSession();
+  const isLoading = status === "loading";
+  const isAuthed = !!session?.user;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
@@ -37,8 +41,44 @@ export function Header() {
 
         {/* Desktop actions */}
         <div className="hidden items-center gap-3 md:flex">
-          <Button variant="ghost" size="sm" render={<Link href="/sign-in" />}>Sign In</Button>
-          <Button size="sm" render={<Link href="/sign-in" />}>Get Started</Button>
+          {isLoading ? (
+            <div className="h-8 w-20 animate-pulse rounded-lg bg-muted" />
+          ) : isAuthed ? (
+            <>
+              <Button variant="ghost" size="sm" render={<Link href="/dashboard" />}>
+                <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" />
+                Dashboard
+              </Button>
+              <div className="flex items-center gap-2">
+                {session?.user?.image ? (
+                  <img
+                    src={session.user.image}
+                    alt={session.user?.name || ""}
+                    className="h-7 w-7 rounded-full"
+                  />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                    {session?.user?.name?.charAt(0) || session?.user?.email?.charAt(0) || "U"}
+                  </div>
+                )}
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" render={<Link href="/sign-in" />}>
+                Sign In
+              </Button>
+              <Button size="sm" render={<Link href="/sign-in" />}>
+                Get Started
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile menu button */}
@@ -47,7 +87,11 @@ export function Header() {
           className="flex h-9 w-9 items-center justify-center rounded-md md:hidden"
           aria-label="Toggle menu"
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {mobileOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
         </button>
       </div>
 
@@ -66,8 +110,36 @@ export function Header() {
               </Link>
             ))}
             <div className="mt-2 flex flex-col gap-2">
-              <Button variant="outline" size="sm" render={<Link href="/sign-in" />}>Sign In</Button>
-              <Button size="sm" render={<Link href="/sign-in" />}>Get Started</Button>
+              {isAuthed ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href="/dashboard" />}
+                  >
+                    Dashboard
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                  >
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link href="/sign-in" />}
+                  >
+                    Sign In
+                  </Button>
+                  <Button size="sm" render={<Link href="/sign-in" />}>
+                    Get Started
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>
