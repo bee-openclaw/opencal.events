@@ -81,14 +81,13 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      // Get token from server (uses service role key)
-      const { token } = await devSignIn(email);
+      // Get token hash from server (uses service role key)
+      const { tokenHash } = await devSignIn(email);
 
       // Verify it client-side to establish session
       const supabase = createClient();
       const { error } = await supabase.auth.verifyOtp({
-        email,
-        token,
+        token_hash: tokenHash,
         type: "magiclink",
       });
 

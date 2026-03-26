@@ -9,28 +9,47 @@ const supabaseAdmin = createClient(
 );
 
 /**
- * Dev-only: generates a magic link for instant sign-in without email delivery.
- * Returns the OTP token directly so the client can verify it.
+ * Dev-only: signs in a user by email without OTP.
+ * Creates the user if they don't exist, then generates an OTP
+ * via the admin API and returns it for client-side verification.
  */
 export async function devSignIn(email: string) {
   if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DEV_AUTH) {
     throw new Error("Dev auth not available");
   }
 
-  // Generate OTP via admin API
+  // Ensure user exists
+  const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+  const exists = existingUsers?.users?.some((u) => u.email === email);
+
+  if (!exists) {
+    const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    });
+    if (createErr && !createErr.message.includes("already been registered")) {
+      throw new Error(createErr.message);
+    }
+  }
+
+  // Generate a magic link and extract the hashed token
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { data: {} },
   });
 
   if (error) throw new Error(error.message);
 
-  // Extract the OTP token from the generated link
-  const url = new URL(data.properties.action_link);
-  const token = url.searchParams.get("token");
+  // The properties contain the OTP token hash - but we need the raw token
+  // Instead, let's use the action_link which contains the token
+  const actionLink = data.properties?.action_link;
+  if (!actionLink) throw new Error("No action link generated");
 
-  if (!token) throw new Error("Failed to generate token");
+  // Extract token_hash from the link
+  const url = new URL(actionLink);
+  const tokenHash = url.searchParams.get("token");
 
-  return { token };
+  if (!tokenHash) throw new Error("No token in link");
+
+  return { tokenHash, type: "magiclink" as const };
 }
