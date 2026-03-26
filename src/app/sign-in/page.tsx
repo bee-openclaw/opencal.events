@@ -85,7 +85,7 @@ export default function SignInPage() {
             <p className="mt-1.5 text-sm text-muted-foreground">
               {step === "email"
                 ? "Enter your email to get a sign-in code"
-                : `We sent a 6-digit code to ${email}`}
+                : `We sent a code to ${email}`}
             </p>
           </div>
 
@@ -123,22 +123,22 @@ export default function SignInPage() {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  maxLength={6}
-                  placeholder="000000"
+                  maxLength={8}
+                  placeholder="00000000"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   required
                   autoFocus
-                  className="text-center text-2xl tracking-[0.3em] font-mono"
+                  className="text-center text-xl tracking-[0.2em] font-mono"
                 />
                 <p className="text-xs text-muted-foreground text-center">
-                  Check your email for a 6-digit code
+                  Check your email for an 8-digit code
                 </p>
               </div>
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading || code.length !== 6}
+                disabled={loading || code.length !== 8}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Verify & Sign In
