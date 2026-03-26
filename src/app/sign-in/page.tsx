@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { devSignIn } from "@/lib/actions/dev-auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -73,6 +74,38 @@ export default function SignInPage() {
     }
   }
 
+  async function handleDevSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
+    setError("");
+    setLoading(true);
+
+    try {
+      // Get token from server (uses service role key)
+      const { token } = await devSignIn(email);
+
+      // Verify it client-side to establish session
+      const supabase = createClient();
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: "magiclink",
+      });
+
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || "Dev sign-in failed");
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex flex-1 items-center justify-center px-4 py-20">
       <Card className="w-full max-w-sm border-border/50">
@@ -84,7 +117,7 @@ export default function SignInPage() {
             <h1 className="text-xl font-bold">Sign in to OpenCal</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
               {step === "email"
-                ? "Enter your email to get a sign-in code"
+                ? "Enter your email to sign in"
                 : `We sent a code to ${email}`}
             </p>
           </div>
@@ -96,24 +129,51 @@ export default function SignInPage() {
           )}
 
           {step === "email" ? (
-            <form onSubmit={handleSendCode} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoFocus
-                />
+            <div className="space-y-4">
+              <form onSubmit={handleSendCode} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Send Code
+                </Button>
+              </form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Code
-              </Button>
-            </form>
+
+              <form onSubmit={handleDevSignIn}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="w-full"
+                  disabled={loading || !email}
+                >
+                  {loading && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Quick Sign In (no email needed)
+                </Button>
+              </form>
+            </div>
           ) : (
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div className="space-y-2">
