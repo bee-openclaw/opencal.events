@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { userRoles, users, orgNodes, organizations } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import type { UserRole } from "@/db/schema/organizations";
@@ -29,8 +29,8 @@ export async function getOrgMembers(orgId: string) {
 }
 
 export async function addMemberByEmail(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const email = formData.get("email") as string;
   const orgId = formData.get("orgId") as string;
@@ -41,14 +41,14 @@ export async function addMemberByEmail(formData: FormData) {
     throw new Error("Missing required fields");
   }
 
-  // Find user by email
-  const [user] = await db
+  // Find target user by email
+  const [targetUser] = await db
     .select()
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
 
-  if (!user) {
+  if (!targetUser) {
     throw new Error("User not found. They need to sign up first.");
   }
 
@@ -58,7 +58,7 @@ export async function addMemberByEmail(formData: FormData) {
     .from(userRoles)
     .where(
       and(
-        eq(userRoles.userId, user.id),
+        eq(userRoles.userId, targetUser.id),
         eq(userRoles.orgNodeId, orgNodeId),
         eq(userRoles.role, role)
       )
@@ -70,7 +70,7 @@ export async function addMemberByEmail(formData: FormData) {
   }
 
   await db.insert(userRoles).values({
-    userId: user.id,
+    userId: targetUser.id,
     orgId,
     orgNodeId,
     role,
@@ -88,15 +88,15 @@ export async function addMemberByEmail(formData: FormData) {
 }
 
 export async function removeMember(roleId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   await db.delete(userRoles).where(eq(userRoles.id, roleId));
 }
 
 export async function updateMemberRole(roleId: string, newRole: UserRole) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   await db
     .update(userRoles)

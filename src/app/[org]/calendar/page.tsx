@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,8 +33,8 @@ export default async function CalendarPage({
   params: Promise<{ org: string }>;
   searchParams: Promise<{ month?: string; year?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  const user = await getAppUser();
+  if (!user) redirect("/sign-in");
 
   const { org: slug } = await params;
   const sp = await searchParams;
@@ -43,7 +43,7 @@ export default async function CalendarPage({
   if (!data) notFound();
 
   const { org, nodes } = data;
-  const role = await getUserHighestRole(session.user.id!, org.id);
+  const role = await getUserHighestRole(user.id, org.id);
   if (!role) notFound();
 
   const now = new Date();

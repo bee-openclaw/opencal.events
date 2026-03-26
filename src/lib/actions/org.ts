@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { organizations, orgNodes, userRoles } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -15,8 +15,8 @@ function slugify(text: string): string {
 }
 
 export async function createOrganization(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -42,7 +42,7 @@ export async function createOrganization(formData: FormData) {
       slug,
       description,
       settings: { defaultTimezone: timezone, levelLabels: ["Headquarters", "Region", "Chapter"] },
-      createdBy: session.user.id,
+      createdBy: user.id,
     })
     .returning();
 
@@ -67,7 +67,7 @@ export async function createOrganization(formData: FormData) {
 
   // Assign creator as global_admin
   await db.insert(userRoles).values({
-    userId: session.user.id,
+    userId: user.id,
     orgId: org.id,
     orgNodeId: rootNode.id,
     role: "global_admin",
@@ -77,8 +77,8 @@ export async function createOrganization(formData: FormData) {
 }
 
 export async function updateOrganization(orgId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -98,8 +98,8 @@ export async function updateOrganization(orgId: string, formData: FormData) {
 }
 
 export async function getMyOrganizations() {
-  const session = await auth();
-  if (!session?.user?.id) return [];
+  const user = await getAppUser();
+  if (!user) return [];
 
   const roles = await db
     .select({
@@ -107,7 +107,7 @@ export async function getMyOrganizations() {
       role: userRoles.role,
     })
     .from(userRoles)
-    .where(eq(userRoles.userId, session.user.id));
+    .where(eq(userRoles.userId, user.id));
 
   if (roles.length === 0) return [];
 

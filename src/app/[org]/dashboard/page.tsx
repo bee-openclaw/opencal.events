@@ -10,7 +10,7 @@ import {
   Clock,
   AlertTriangle,
 } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,8 +32,8 @@ export default async function OrgDashboardPage({
 }: {
   params: Promise<{ org: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  const user = await getAppUser();
+  if (!user) redirect("/sign-in");
 
   const { org: slug } = await params;
   const data = await getOrgWithNodes(slug);
@@ -41,7 +41,7 @@ export default async function OrgDashboardPage({
 
   const { org, nodes } = data;
   const allEvents = await getOrgEvents(org.id);
-  const role = await getUserHighestRole(session.user.id!, org.id);
+  const role = await getUserHighestRole(user.id, org.id);
 
   if (!role) {
     return (

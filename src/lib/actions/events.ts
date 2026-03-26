@@ -2,14 +2,14 @@
 
 import { db } from "@/db";
 import { events, rsvps, orgNodes, organizations } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { eq, and, gte, lte, sql, or, ne, desc, asc, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createEvent(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const orgId = formData.get("orgId") as string;
   const orgNodeId = formData.get("orgNodeId") as string;
@@ -35,7 +35,7 @@ export async function createEvent(formData: FormData) {
     .values({
       orgId,
       orgNodeId,
-      createdBy: session.user.id,
+      createdBy: user.id,
       title,
       description,
       longDescription: longDescription || null,
@@ -66,8 +66,8 @@ export async function createEvent(formData: FormData) {
 }
 
 export async function updateEvent(eventId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const title = formData.get("title") as string;
   const description = formData.get("description") as string;
@@ -101,8 +101,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
 }
 
 export async function deleteEvent(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   await db.delete(events).where(eq(events.id, eventId));
 }
@@ -220,13 +220,13 @@ export async function detectConflicts(
 }
 
 export async function toggleRsvp(eventId: string, status: "going" | "maybe" | "declined") {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const existing = await db
     .select()
     .from(rsvps)
-    .where(and(eq(rsvps.eventId, eventId), eq(rsvps.userId, session.user.id)))
+    .where(and(eq(rsvps.eventId, eventId), eq(rsvps.userId, user.id)))
     .limit(1);
 
   if (existing.length > 0) {
@@ -242,7 +242,7 @@ export async function toggleRsvp(eventId: string, status: "going" | "maybe" | "d
   } else {
     await db.insert(rsvps).values({
       eventId,
-      userId: session.user.id,
+      userId: user.id,
       status,
     });
   }
@@ -258,13 +258,13 @@ export async function getEventRsvps(eventId: string) {
 }
 
 export async function getMyRsvp(eventId: string) {
-  const session = await auth();
-  if (!session?.user?.id) return null;
+  const user = await getAppUser();
+  if (!user) return null;
 
   const [rsvp] = await db
     .select()
     .from(rsvps)
-    .where(and(eq(rsvps.eventId, eventId), eq(rsvps.userId, session.user.id)))
+    .where(and(eq(rsvps.eventId, eventId), eq(rsvps.userId, user.id)))
     .limit(1);
 
   return rsvp || null;

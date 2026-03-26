@@ -1,17 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Calendar, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 export function Header() {
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { data: session, status } = useSession();
-  const isLoading = status === "loading";
-  const isAuthed = !!session?.user;
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setUser(null);
+    router.push("/");
+    router.refresh();
+  }
+
+  const isAuthed = !!user;
+  const displayName =
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "";
+  const initials = displayName?.charAt(0)?.toUpperCase() || "U";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
@@ -41,28 +73,24 @@ export function Header() {
 
         {/* Desktop actions */}
         <div className="hidden items-center gap-3 md:flex">
-          {isLoading ? (
+          {loading ? (
             <div className="h-8 w-20 animate-pulse rounded-lg bg-muted" />
           ) : isAuthed ? (
             <>
-              <Button variant="ghost" size="sm" render={<Link href="/dashboard" />}>
+              <Button
+                variant="ghost"
+                size="sm"
+                render={<Link href="/dashboard" />}
+              >
                 <LayoutDashboard className="mr-1.5 h-3.5 w-3.5" />
                 Dashboard
               </Button>
               <div className="flex items-center gap-2">
-                {session?.user?.image ? (
-                  <img
-                    src={session.user.image}
-                    alt={session.user?.name || ""}
-                    className="h-7 w-7 rounded-full"
-                  />
-                ) : (
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                    {session?.user?.name?.charAt(0) || session?.user?.email?.charAt(0) || "U"}
-                  </div>
-                )}
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
+                  {initials}
+                </div>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={handleSignOut}
                   className="text-sm text-muted-foreground hover:text-foreground"
                 >
                   <LogOut className="h-4 w-4" />
@@ -71,7 +99,11 @@ export function Header() {
             </>
           ) : (
             <>
-              <Button variant="ghost" size="sm" render={<Link href="/sign-in" />}>
+              <Button
+                variant="ghost"
+                size="sm"
+                render={<Link href="/sign-in" />}
+              >
                 Sign In
               </Button>
               <Button size="sm" render={<Link href="/sign-in" />}>
@@ -119,10 +151,7 @@ export function Header() {
                   >
                     Dashboard
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => signOut({ callbackUrl: "/" })}
-                  >
+                  <Button size="sm" onClick={handleSignOut}>
                     Sign Out
                   </Button>
                 </>

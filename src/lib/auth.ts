@@ -1,39 +1,40 @@
-import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
-import GitHub from "next-auth/providers/github";
-import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { users, accounts, sessions, verificationTokens } from "@/db/schema";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
-  providers: [
-    Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
-    }),
-    GitHub({
-      clientId: process.env.AUTH_GITHUB_ID,
-      clientSecret: process.env.AUTH_GITHUB_SECRET,
-    }),
-  ],
-  pages: {
-    signIn: "/sign-in",
-  },
-  session: {
-    strategy: "database",
-  },
-  callbacks: {
-    session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-      }
-      return session;
-    },
-  },
-});
+export async function getSession() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}
+
+export async function getAppUser() {
+  const supabaseUser = await getSession();
+  if (!supabaseUser?.email) return null;
+
+  // Find or create the app user
+  let [appUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, supabaseUser.email))
+    .limit(1);
+
+  if (!appUser) {
+    [appUser] = await db
+      .insert(users)
+      .values({
+        email: supabaseUser.email,
+        name:
+          supabaseUser.user_metadata?.full_name ||
+          supabaseUser.email.split("@")[0],
+        image: supabaseUser.user_metadata?.avatar_url || null,
+        emailVerified: new Date(),
+      })
+      .returning();
+  }
+
+  return appUser;
+}

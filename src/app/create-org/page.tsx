@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,8 @@ import { createOrganization } from "@/lib/actions/org";
 export const metadata = { title: "Create Organization" };
 
 export default async function CreateOrgPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  const user = await getAppUser();
+  if (!user) redirect("/sign-in");
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10 sm:px-6 lg:px-8">

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus, Calendar, Users, ArrowRight } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +10,8 @@ import { getMyOrganizations } from "@/lib/actions/org";
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  const user = await getAppUser();
+  if (!user) redirect("/sign-in");
 
   const orgs = await getMyOrganizations();
 
@@ -21,7 +21,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Welcome back, {session.user.name || session.user.email}
+            Welcome back, {user.name || user.email}
           </p>
         </div>
         <Button render={<Link href="/create-org" />}>

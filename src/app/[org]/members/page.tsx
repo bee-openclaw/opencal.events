@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Shield } from "lucide-react";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,15 +27,15 @@ export default async function MembersPage({
 }: {
   params: Promise<{ org: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect("/sign-in");
+  const user = await getAppUser();
+  if (!user) redirect("/sign-in");
 
   const { org: slug } = await params;
   const data = await getOrgWithNodes(slug);
   if (!data) notFound();
 
   const { org, nodes } = data;
-  const role = await getUserHighestRole(session.user.id!, org.id);
+  const role = await getUserHighestRole(user.id, org.id);
   if (!role || role === "member" || role === "observer") {
     return (
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

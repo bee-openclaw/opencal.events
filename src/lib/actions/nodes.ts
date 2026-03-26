@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { orgNodes, organizations } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { getAppUser } from "@/lib/auth";
 import { eq, and, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -33,8 +33,8 @@ export async function getOrgWithNodes(orgSlug: string) {
 }
 
 export async function createOrgNode(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const orgId = formData.get("orgId") as string;
   const parentId = formData.get("parentId") as string;
@@ -97,8 +97,8 @@ export async function createOrgNode(formData: FormData) {
 }
 
 export async function updateOrgNode(nodeId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   const name = formData.get("name") as string;
   const timezone = formData.get("timezone") as string;
@@ -115,8 +115,8 @@ export async function updateOrgNode(nodeId: string, formData: FormData) {
 }
 
 export async function deleteOrgNode(nodeId: string) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const user = await getAppUser();
+  if (!user) throw new Error("Unauthorized");
 
   // Prevent deleting root nodes
   const [node] = await db
