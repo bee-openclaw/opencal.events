@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { devSignIn } from "@/lib/actions/dev-auth";
+import { devEnsureUser } from "@/lib/actions/dev-auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -81,14 +81,14 @@ export default function SignInPage() {
     setLoading(true);
 
     try {
-      // Get token hash from server (uses service role key)
-      const { tokenHash } = await devSignIn(email);
+      // Ensure user exists with a known password (server-side admin API)
+      const { password } = await devEnsureUser(email);
 
-      // Verify it client-side to establish session
+      // Sign in with password (client-side — sets session cookies)
       const supabase = createClient();
-      const { error } = await supabase.auth.verifyOtp({
-        token_hash: tokenHash,
-        type: "magiclink",
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
       if (error) {

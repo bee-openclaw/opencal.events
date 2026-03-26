@@ -8,48 +8,33 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
+const DEV_PASSWORD = "opencal-dev-2026";
+
 /**
- * Dev-only: signs in a user by email without OTP.
- * Creates the user if they don't exist, then generates an OTP
- * via the admin API and returns it for client-side verification.
+ * Dev-only: ensures a user exists with a known password for instant sign-in.
  */
-export async function devSignIn(email: string) {
+export async function devEnsureUser(email: string) {
   if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DEV_AUTH) {
     throw new Error("Dev auth not available");
   }
 
-  // Ensure user exists
-  const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-  const exists = existingUsers?.users?.some((u) => u.email === email);
+  // Try to create user with password
+  const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: DEV_PASSWORD,
+    email_confirm: true,
+  });
 
-  if (!exists) {
-    const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-    });
-    if (createErr && !createErr.message.includes("already been registered")) {
-      throw new Error(createErr.message);
+  // If user already exists, update their password
+  if (createErr?.message?.includes("already been registered")) {
+    const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = users?.users?.find((u) => u.email === email);
+    if (existingUser) {
+      await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+        password: DEV_PASSWORD,
+      });
     }
   }
 
-  // Generate a magic link and extract the hashed token
-  const { data, error } = await supabaseAdmin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-
-  if (error) throw new Error(error.message);
-
-  // The properties contain the OTP token hash - but we need the raw token
-  // Instead, let's use the action_link which contains the token
-  const actionLink = data.properties?.action_link;
-  if (!actionLink) throw new Error("No action link generated");
-
-  // Extract token_hash from the link
-  const url = new URL(actionLink);
-  const tokenHash = url.searchParams.get("token");
-
-  if (!tokenHash) throw new Error("No token in link");
-
-  return { tokenHash, type: "magiclink" as const };
+  return { password: DEV_PASSWORD };
 }
